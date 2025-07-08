@@ -1095,8 +1095,8 @@ export class SignedXml {
           res += `<${prefix}Reference URI="">`;
         } else {
           const id = this.ensureHasId(node);
-          ref.uri = id;
-          res += `<${prefix}Reference URI="#${id}">`;
+          ref.uri = ref.uri ? ref.uri : id;
+          res += `<${prefix}Reference URI="#${ref.uri}">`;
         }
         res += `<${prefix}Transforms>`;
         for (const trans of ref.transforms || []) {
