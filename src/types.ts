@@ -137,6 +137,46 @@ export interface Reference {
   signedReference?: string;
 }
 
+
+/**
+ * Represents an attachment reference node for XML digital signature.
+ * XXX: Do not merge
+ */
+export interface AttachmentReference {
+  // The XPath expression that selects the data to be signed.
+  // XXX: No - this is the string representation of the attachment bytes to be signed.
+
+  //attachment: Buffer | string;  // XXX: NOTE: Cannot do this as Node types don't seem to be present. Query on `xml-crypto` in the brwoser?
+  attachment: Buffer;
+
+  // An array of transforms to be applied to the data before signing.
+  transforms: ReadonlyArray<CanonicalizationOrTransformAlgorithmType>;
+
+  // The algorithm used to calculate the digest value of the data.
+  digestAlgorithm: HashAlgorithmType;
+
+  // The URI that identifies the data to be signed.
+  uri: string;
+
+  // Optional. The digest value of the referenced data.
+  digestValue?: unknown;
+
+  // A list of namespace prefixes to be treated as "inclusive" during canonicalization.
+  inclusiveNamespacesPrefixList: string[];
+
+  // Optional. Indicates whether the URI is empty.
+  isEmptyUri: boolean;
+
+  // Optional. The type of the reference node.
+  ancestorNamespaces?: NamespacePrefix[];
+
+  validationError?: Error;
+
+  getValidatedNode(xpathSelector?: string): Node | null;
+
+  signedReference?: string;
+}
+
 /** Implement this to create a new CanonicalizationOrTransformationAlgorithm */
 export interface CanonicalizationOrTransformationAlgorithm {
   process(
@@ -151,7 +191,7 @@ export interface CanonicalizationOrTransformationAlgorithm {
 export interface HashAlgorithm {
   getAlgorithmName(): HashAlgorithmType;
 
-  getHash(xml: string): string;
+  getHash(xml: string | Buffer): string;
 }
 
 /** Extend this to create a new SignatureAlgorithm */

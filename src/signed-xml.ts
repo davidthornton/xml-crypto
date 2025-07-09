@@ -9,6 +9,7 @@ import type {
   HashAlgorithm,
   HashAlgorithmType,
   Reference,
+  AttachmentReference,
   SignatureAlgorithm,
   SignatureAlgorithmType,
   SignedXmlOptions,
@@ -71,6 +72,7 @@ export class SignedXml {
    * @see {@link Reference}
    */
   private references: Reference[] = [];
+  private attachmentReferences: AttachmentReference[] = [];
 
   /**
    * Contains the canonicalized XML of the references that were validly signed.
@@ -831,6 +833,52 @@ export class SignedXml {
   }
 
   /**
+   * Adds an attachment reference to the signature.
+   *
+   * @param xpath The XPath expression to select the XML nodes to be referenced.
+   * @param transforms An array of transform algorithms to be applied to the selected nodes.
+   * @param digestAlgorithm The digest algorithm to use for computing the digest value.
+   * @param uri The URI identifier for the reference. If empty, an empty URI will be used.
+   * @param digestValue The expected digest value for the reference.
+   * @param inclusiveNamespacesPrefixList The prefix list for inclusive namespace canonicalization.
+   * @param isEmptyUri Indicates whether the URI is empty. Defaults to `false`.
+   */
+  addAttachmentReference({
+    //xpath,
+    attachment,
+    transforms,
+    digestAlgorithm,
+    uri = "",
+    digestValue,
+    inclusiveNamespacesPrefixList = [],
+    isEmptyUri = false,
+  }: Partial<Reference> & Pick<Reference, "xpath"> & Pick<AttachmentReference, "attachment">): void {
+    if (digestAlgorithm == null) {
+      throw new Error("digestAlgorithm is required");
+    }
+
+    if (!utils.isArrayHasLength(transforms)) {
+      throw new Error("transforms must contain at least one transform algorithm");
+    }
+
+    this.attachmentReferences.push({
+      //xpath,
+      attachment,
+      transforms,
+      digestAlgorithm,
+      uri,
+      digestValue,
+      inclusiveNamespacesPrefixList,
+      isEmptyUri,
+      getValidatedNode: () => {
+        throw new Error(
+          "Reference has not been validated yet; Did you call `sig.checkSignature()`?",
+        );
+      },
+    });
+  }
+
+  /**
    * Returns the list of references.
    */
   getReferences() {
@@ -842,6 +890,20 @@ export class SignedXml {
     */
 
     return this.references;
+  }
+
+  /**
+   * Returns the list of references.
+   */
+  getAttachmentReferences() {
+    // TODO: Refactor once `getValidatedNode` is removed
+    /* Once we completely remove the deprecated `getValidatedNode()` method,
+    we can change this to return a clone to prevent accidental mutations,
+    e.g.:
+    return [...this.attachmentReferences];
+    */
+
+    return this.attachmentReferences;
   }
 
   getSignedReferences() {
@@ -1122,6 +1184,39 @@ export class SignedXml {
           `<${prefix}DigestValue>${digestAlgorithm.getHash(canonXml)}</${prefix}DigestValue>` +
           `</${prefix}Reference>`;
       }
+    }
+
+    for (const ref of this.getAttachmentReferences()) {
+      if (ref.isEmptyUri) {
+        res += `<${prefix}Reference URI="">`;
+      } else {
+        //const id = this.ensureHasId(node);
+        //ref.uri = ref.uri ? ref.uri : id;
+        res += `<${prefix}Reference URI="${ref.uri}">`;
+      }
+      res += `<${prefix}Transforms>`;
+      for (const trans of ref.transforms || []) {
+        const transform = this.findCanonicalizationAlgorithm(trans);
+        res += `<${prefix}Transform Algorithm="${transform.getAlgorithmName()}"`;
+        if (utils.isArrayHasLength(ref.inclusiveNamespacesPrefixList)) {
+          res += ">";
+          res += `<InclusiveNamespaces PrefixList="${ref.inclusiveNamespacesPrefixList.join(
+            " ",
+          )}" xmlns="${transform.getAlgorithmName()}"/>`;
+          res += `</${prefix}Transform>`;
+        } else {
+          res += " />";
+        }
+      }
+
+      //const canonXml = this.getCanonReferenceXml(doc, ref, node);
+
+      const digestAlgorithm = this.findHashAlgorithm(ref.digestAlgorithm);
+      res +=
+        `</${prefix}Transforms>` +
+        `<${prefix}DigestMethod Algorithm="${digestAlgorithm.getAlgorithmName()}" />` +
+        `<${prefix}DigestValue>${digestAlgorithm.getHash(ref.attachment)}</${prefix}DigestValue>` +
+        `</${prefix}Reference>`;
     }
 
     return res;
