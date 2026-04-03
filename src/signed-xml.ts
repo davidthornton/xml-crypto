@@ -1287,7 +1287,7 @@ export class SignedXml {
       if (ref.isEmptyUri) {
         targetUri = "";
       } else {
-        targetUri = `#${ref.uri}`;
+        targetUri = `${ref.uri}`;
       }
 
       // Create the reference element directly using DOM methods to avoid namespace issues
